@@ -1,17 +1,26 @@
 "use client";
 
-import { Meal } from "@/types";
+import { Meal, MEAL_TYPES } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Trash2, Pencil } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 interface MealCardProps {
   meal: Meal;
   onDelete?: (id: string) => void;
+  showEdit?: boolean;
 }
 
-export function MealCard({ meal, onDelete }: MealCardProps) {
+const getMealTypeInfo = (mealType: string | null) => {
+  const type = MEAL_TYPES.find(t => t.id === mealType);
+  return type || null;
+};
+
+export function MealCard({ meal, onDelete, showEdit = true }: MealCardProps) {
+  const mealTypeInfo = getMealTypeInfo(meal.meal_type);
+  
   return (
     <Card>
       <CardContent className="p-3">
@@ -30,7 +39,11 @@ export function MealCard({ meal, onDelete }: MealCardProps) {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <p className="font-medium truncate">{meal.description}</p>
-                <p className="text-sm text-muted-foreground">{meal.time}</p>
+                <p className="text-sm text-muted-foreground">
+                  {mealTypeInfo && <span className="mr-1">{mealTypeInfo.icon}</span>}
+                  {mealTypeInfo?.label && <span className="mr-1">{mealTypeInfo.label} •</span>}
+                  {meal.time.slice(0, 5)}
+                </p>
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="font-semibold">{meal.calories} kcal</p>
@@ -48,16 +61,30 @@ export function MealCard({ meal, onDelete }: MealCardProps) {
               </span>
             </div>
           </div>
-          {onDelete && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
-              onClick={() => onDelete(meal.id)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
+          <div className="flex flex-col gap-1 flex-shrink-0">
+            {showEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                asChild
+              >
+                <Link href={`/meal/${meal.id}`}>
+                  <Pencil className="h-4 w-4" />
+                </Link>
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => onDelete(meal.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

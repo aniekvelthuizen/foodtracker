@@ -7,7 +7,7 @@ const anthropic = new Anthropic({
 
 export async function POST(request: Request) {
   try {
-    const { profile, totals, targets, timeOfDay, isMenstruation } = await request.json();
+    const { profile, totals, targets, timeOfDay, isMenstruation, mealsLogged } = await request.json();
 
     // Calculate remaining macros
     const remaining = {
@@ -18,15 +18,35 @@ export async function POST(request: Request) {
       fiber: targets.fiber - totals.fiber,
     };
 
-    // Determine time of day context
-    let mealContext = "avondeten";
-    if (timeOfDay < 10) {
+    // Check which meals have been logged
+    const mealTypeLabels: Record<string, string> = {
+      breakfast: "ontbijt",
+      lunch: "lunch", 
+      dinner: "avondeten",
+      snack: "snack",
+    };
+    
+    const loggedMealTypes = mealsLogged || [];
+    const hasBreakfast = loggedMealTypes.includes("breakfast");
+    const hasLunch = loggedMealTypes.includes("lunch");
+    const hasDinner = loggedMealTypes.includes("dinner");
+    
+    // Determine what meal to suggest based on time AND what's already logged
+    let mealContext = "een snack";
+    if (timeOfDay < 10 && !hasBreakfast) {
       mealContext = "ontbijt";
-    } else if (timeOfDay < 14) {
+    } else if (timeOfDay < 14 && !hasLunch) {
       mealContext = "lunch";
-    } else if (timeOfDay < 17) {
-      mealContext = "tussendoortje";
+    } else if (timeOfDay >= 17 && !hasDinner) {
+      mealContext = "avondeten";
+    } else if (timeOfDay >= 14 && timeOfDay < 17) {
+      mealContext = "een tussendoortje";
     }
+    
+    // Build logged meals info
+    const loggedMealsText = loggedMealTypes.length > 0
+      ? `Al gelogde maaltijden vandaag: ${loggedMealTypes.map((t: string) => mealTypeLabels[t] || t).join(", ")}`
+      : "Nog geen maaltijden gelogd vandaag";
 
     const goals = profile.goals || [];
     const goalsText = goals.length > 0 
@@ -55,6 +75,8 @@ Gebruikersprofiel:
 - Gewicht: ${profile.weight || "onbekend"} kg
 ${menstruationContext}
 
+${loggedMealsText}
+
 Huidige intake vandaag:
 - Calorieën: ${totals.calories} / ${targets.calories} kcal
 - Eiwit: ${totals.protein}g / ${targets.protein}g
@@ -70,11 +92,11 @@ Nog nodig:
 - Vet: ${remaining.fat}g
 - Vezels: ${remaining.fiber}g
 
-Het is nu tijd voor ${mealContext}.
+Suggereer ${mealContext} (niet een maaltijd die al gelogd is!).
 
 Geef een persoonlijk, praktisch advies. Noem concrete voedingsmiddelen met hoeveelheden. ${isMenstruation ? "Verwijs subtiel naar ijzer/magnesium-rijke opties." : "Focus op het belangrijkste tekort (meestal eiwit bij sportdoelen)."} Gebruik een vriendelijke, motiverende toon.
 
-Als de gebruiker al (bijna) genoeg heeft gegeten, geef dan een compliment en suggereer eventueel een lichte snack of zeg dat het goed is zo.`;
+Als de gebruiker al (bijna) genoeg heeft gegeten of alle hoofdmaaltijden al heeft gehad, geef dan een compliment en suggereer eventueel een lichte snack of zeg dat het goed is zo.`;
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",

@@ -44,12 +44,23 @@ export const WEIGHT_GAIN_RATES: WeightLossRate[] = [
   { id: "normal", label: "Normal", labelNL: "Normaal", adjustment: 400, weeklyLoss: "+0.4 kg/week" },
 ];
 
+// Meal types
+export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
+
+export const MEAL_TYPES: { id: MealType; label: string; icon: string }[] = [
+  { id: "breakfast", label: "Ontbijt", icon: "🌅" },
+  { id: "lunch", label: "Lunch", icon: "☀️" },
+  { id: "dinner", label: "Avondeten", icon: "🌙" },
+  { id: "snack", label: "Snack", icon: "🍎" },
+];
+
 // Meal
 export interface Meal {
   id: string;
   user_id: string;
   date: string; // YYYY-MM-DD
   time: string; // HH:MM
+  meal_type: MealType | null;
   description: string;
   photo_url?: string | null;
   calories: number;

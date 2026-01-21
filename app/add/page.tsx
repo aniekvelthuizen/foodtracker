@@ -14,7 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Loader2, Search, Check, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
-import { FoodAnalysis, FollowUpQuestion } from "@/types";
+import { FoodAnalysis, FollowUpQuestion, MealType, MEAL_TYPES } from "@/types";
+import { cn } from "@/lib/utils";
 
 type Step = "input" | "analyzing" | "questions" | "review";
 
@@ -23,6 +24,7 @@ export default function AddMealPage() {
   const [step, setStep] = useState<Step>("input");
   const [photo, setPhoto] = useState<string | null>(null);
   const [description, setDescription] = useState("");
+  const [mealType, setMealType] = useState<MealType | null>(null);
   const [analysis, setAnalysis] = useState<FoodAnalysis | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -169,6 +171,7 @@ export default function AddMealPage() {
         user_id: user.id,
         date: today,
         time,
+        meal_type: mealType,
         description: analysis?.description || description || "Maaltijd",
         photo_url: photoUrl,
         calories,
@@ -207,6 +210,30 @@ export default function AddMealPage() {
         {/* Step: Input */}
         {step === "input" && (
           <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Type maaltijd</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-4 gap-2">
+                  {MEAL_TYPES.map((type) => (
+                    <Button
+                      key={type.id}
+                      variant={mealType === type.id ? "default" : "outline"}
+                      className={cn(
+                        "h-auto flex-col gap-1 py-3",
+                        mealType === type.id && "ring-2 ring-primary ring-offset-2"
+                      )}
+                      onClick={() => setMealType(type.id)}
+                    >
+                      <span className="text-xl">{type.icon}</span>
+                      <span className="text-xs">{type.label}</span>
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Foto</CardTitle>
