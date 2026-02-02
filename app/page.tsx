@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Header } from "@/components/Header";
 import { Navigation } from "@/components/Navigation";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, Apple, Lightbulb, Dumbbell, Droplets, MessageCircle, Send, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Meal, Workout, UserProfile, MacroTargets, DailyLog } from "@/types";
@@ -32,12 +33,25 @@ export default function DashboardPage() {
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isSendingChat, setIsSendingChat] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const today = new Date().toISOString().split("T")[0];
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, isSendingChat]);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Auto-load advice when data is ready or meals change
+  useEffect(() => {
+    if (profile && !isLoading) {
+      loadAdvice();
+    }
+  }, [profile, isLoading, meals.length]);
 
   const loadData = async () => {
     try {
@@ -409,121 +423,120 @@ export default function DashboardPage() {
                   <Lightbulb className="h-4 w-4" />
                   AI Advies
                 </CardTitle>
-                <div className="flex gap-1">
-                  {isChatOpen && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={closeChat}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setChatMessages([]);
+                    loadAdvice();
+                  }}
+                  disabled={isLoadingAdvice}
+                  className="cursor-pointer"
+                >
+                  {isLoadingAdvice ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Vernieuw"
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setChatMessages([]);
-                      setIsChatOpen(false);
-                      loadAdvice();
-                    }}
-                    disabled={isLoadingAdvice}
-                  >
-                    {isLoadingAdvice ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Vernieuw"
-                    )}
-                  </Button>
-                </div>
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {advice ? (
                 <>
-                  {/* Chat messages */}
-                  {isChatOpen ? (
-                    <div className="space-y-3">
-                      {/* Messages */}
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {chatMessages.map((msg, i) => (
-                          <div
-                            key={i}
-                            className={cn(
-                              "text-sm p-2 rounded-lg",
-                              msg.role === "user"
-                                ? "bg-primary text-primary-foreground ml-8"
-                                : "bg-muted mr-8"
-                            )}
-                          >
-                            {msg.content}
-                          </div>
-                        ))}
-                        {isSendingChat && (
-                          <div className="bg-muted mr-8 p-2 rounded-lg">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Input */}
-                      <div className="flex gap-2">
-                        <Input
-                          value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
-                          placeholder="Stel een vraag..."
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              sendChatMessage();
-                            }
-                          }}
-                          disabled={isSendingChat}
-                        />
-                        <Button
-                          size="icon"
-                          onClick={sendChatMessage}
-                          disabled={isSendingChat || !chatInput.trim()}
-                        >
-                          <Send className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-sm text-muted-foreground">{advice}</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={openChat}
-                      >
-                        <MessageCircle className="mr-2 h-4 w-4" />
-                        Vraag meer
-                      </Button>
-                    </>
-                  )}
+                  <ul className="space-y-2">
+                    {advice.split('\n').filter(line => line.trim()).map((line, i) => {
+                      const cleanLine = line.replace(/^[•\-\*]\s*/, '').trim();
+                      if (!cleanLine) return null;
+                      return (
+                        <li key={i} className="flex items-start gap-2 text-sm">
+                          <span className="text-primary mt-1 flex-shrink-0">•</span>
+                          <span className="text-muted-foreground">{cleanLine}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full cursor-pointer"
+                    onClick={openChat}
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    Vraag meer
+                  </Button>
                 </>
               ) : (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={loadAdvice}
-                  disabled={isLoadingAdvice}
-                >
-                  {isLoadingAdvice ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Laden...
-                    </>
-                  ) : (
-                    "Vraag advies"
-                  )}
-                </Button>
+                <div className="flex items-center justify-center py-4 text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <span className="text-sm">Advies laden...</span>
+                </div>
               )}
             </CardContent>
           </Card>
         )}
+
+        {/* Chat Dialog */}
+        <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
+          <DialogContent className="h-[90vh] max-h-[90vh] w-full max-w-lg flex flex-col p-0">
+            <DialogHeader className="px-4 py-3 border-b">
+              <DialogTitle className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5" />
+                Chat met AI Coach
+              </DialogTitle>
+            </DialogHeader>
+            
+            {/* Messages area */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+              {chatMessages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "text-sm p-3 rounded-xl max-w-[85%]",
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground ml-auto"
+                      : "bg-muted"
+                  )}
+                >
+                  {msg.content}
+                </div>
+              ))}
+              {isSendingChat && (
+                <div className="bg-muted p-3 rounded-xl max-w-[85%]">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+            
+            {/* Input area */}
+            <div className="border-t px-4 py-3">
+              <div className="flex gap-2">
+                <Input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Stel een vraag over voeding..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendChatMessage();
+                    }
+                  }}
+                  disabled={isSendingChat}
+                  className="flex-1"
+                />
+                <Button
+                  size="icon"
+                  onClick={sendChatMessage}
+                  disabled={isSendingChat || !chatInput.trim()}
+                  className="cursor-pointer"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Workouts */}
         {workouts.length > 0 && (
@@ -553,7 +566,7 @@ export default function DashboardPage() {
             </Card>
           ) : (
             meals.map((meal) => (
-              <MealCard key={meal.id} meal={meal} onDelete={handleDeleteMeal} />
+              <MealCard key={meal.id} meal={meal} />
             ))
           )}
         </div>

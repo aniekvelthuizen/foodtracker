@@ -164,3 +164,34 @@ export const ACTIVITY_MULTIPLIERS: Record<string, number> = {
   active: 1.725, // Hard exercise 6-7 days/week
   very_active: 1.9, // Very hard exercise, physical job
 };
+
+// Favorite meal (template for quick logging)
+export interface FavoriteMeal {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  default_meal_type: MealType | null;
+  use_count: number;
+  created_at?: string;
+}
+
+// Saved ingredient (for building custom meals)
+export interface SavedIngredient {
+  id: string;
+  user_id: string;
+  name: string;
+  serving_size: string | null;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  use_count: number;
+  created_at?: string;
+}

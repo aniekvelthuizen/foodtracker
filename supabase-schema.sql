@@ -148,6 +148,79 @@ create index if not exists meals_user_date_idx on meals(user_id, date);
 create index if not exists workouts_user_date_idx on workouts(user_id, date);
 create index if not exists daily_logs_user_date_idx on daily_logs(user_id, date);
 
+-- Favorite meals table (for quick meal logging)
+create table if not exists favorite_meals (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references profiles(id) on delete cascade not null,
+  name text not null,
+  description text,
+  calories numeric default 0,
+  protein numeric default 0,
+  carbs numeric default 0,
+  fat numeric default 0,
+  fiber numeric default 0,
+  default_meal_type text check (default_meal_type in ('breakfast', 'lunch', 'dinner', 'snack')),
+  use_count integer default 0,
+  created_at timestamp with time zone default now()
+);
+
+-- Saved ingredients table (for building custom meals)
+create table if not exists saved_ingredients (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references profiles(id) on delete cascade not null,
+  name text not null,
+  serving_size text,
+  calories numeric default 0,
+  protein numeric default 0,
+  carbs numeric default 0,
+  fat numeric default 0,
+  fiber numeric default 0,
+  use_count integer default 0,
+  created_at timestamp with time zone default now()
+);
+
+-- Enable RLS for new tables
+alter table favorite_meals enable row level security;
+alter table saved_ingredients enable row level security;
+
+-- Favorite meals policies
+create policy "Users can view own favorite_meals"
+  on favorite_meals for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own favorite_meals"
+  on favorite_meals for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own favorite_meals"
+  on favorite_meals for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own favorite_meals"
+  on favorite_meals for delete
+  using (auth.uid() = user_id);
+
+-- Saved ingredients policies
+create policy "Users can view own saved_ingredients"
+  on saved_ingredients for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own saved_ingredients"
+  on saved_ingredients for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own saved_ingredients"
+  on saved_ingredients for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own saved_ingredients"
+  on saved_ingredients for delete
+  using (auth.uid() = user_id);
+
+-- Create indexes for favorites and ingredients
+create index if not exists favorite_meals_user_idx on favorite_meals(user_id);
+create index if not exists saved_ingredients_user_idx on saved_ingredients(user_id);
+
 -- Migration for existing databases (run these if tables already exist):
 -- CREATE TABLE IF NOT EXISTS daily_logs (
 --   id uuid default gen_random_uuid() primary key,

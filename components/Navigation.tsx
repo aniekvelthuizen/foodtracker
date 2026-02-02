@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Apple, Dumbbell, Calendar, Settings } from "lucide-react";
+import { Home, Apple, Dumbbell, Star, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/add", icon: Apple, label: "Eten" },
   { href: "/workout", icon: Dumbbell, label: "Workout" },
-  { href: "/history", icon: Calendar, label: "Historie" },
+  { href: "/favorites", icon: Star, label: "Favorieten" },
   { href: "/profile", icon: Settings, label: "Profiel" },
 ];
 

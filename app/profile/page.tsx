@@ -15,7 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, LogOut, Save, Watch, Calculator, Target } from "lucide-react";
+import { Loader2, LogOut, Save, Watch, Calculator, Target, Star, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { UserProfile, WEIGHT_LOSS_RATES, WEIGHT_GAIN_RATES } from "@/types";
 import { calculateTDEE, calculateMacroTargets, getEffectiveTDEE } from "@/lib/calories";
@@ -506,6 +507,25 @@ export default function ProfilePage() {
             </>
           )}
         </Button>
+
+        {/* Favorites & Ingredients */}
+        <Card>
+          <CardContent className="py-0">
+            <Link 
+              href="/favorites" 
+              className="flex items-center justify-between py-4 hover:opacity-70 transition-opacity"
+            >
+              <div className="flex items-center gap-3">
+                <Star className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">Favorieten & Ingrediënten</p>
+                  <p className="text-sm text-muted-foreground">Beheer je opgeslagen maaltijden</p>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </Link>
+          </CardContent>
+        </Card>
 
         {/* Logout */}
         <Button variant="outline" className="w-full" onClick={handleLogout}>

@@ -5,9 +5,17 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+interface RecentMeal {
+  description: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
 export async function POST(request: Request) {
   try {
-    const { image, description, answers } = await request.json();
+    const { image, description, answers, recentMeals } = await request.json();
 
     if (!image && !description) {
       return NextResponse.json(
@@ -15,6 +23,18 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // Build recent meals context if available
+    const recentMealsContext = recentMeals && recentMeals.length > 0
+      ? `\nPERSOONLIJKE EETGESCHIEDENIS:
+De gebruiker heeft recent deze maaltijden gelogd:
+${(recentMeals as RecentMeal[]).map((m: RecentMeal) => `- ${m.description}: ${m.calories} kcal, ${m.protein}g eiwit`).join("\n")}
+
+Gebruik deze informatie om patronen te herkennen en als defaults te gebruiken. Bijvoorbeeld:
+- Als ze vaak "koffie met melk" loggen → neem melk aan bij nieuwe koffie
+- Als hun boterhammen meestal ~250 kcal zijn → gebruik dat als referentie
+`
+      : "";
 
     // Build the prompt based on whether we have follow-up answers
     let prompt: string;
@@ -29,7 +49,7 @@ Extra informatie van de gebruiker:
 ${Object.entries(answers)
   .map(([question, answer]) => `- ${question}: ${answer}`)
   .join("\n")}
-
+${recentMealsContext}
 Geef nu een nauwkeurige schatting van de voedingswaarden in JSON formaat:
 {
   "description": "korte beschrijving van de maaltijd",
@@ -47,33 +67,47 @@ Geef ALLEEN de JSON terug, geen andere tekst.`;
       prompt = `Je bent een voedingsexpert die maaltijden analyseert voor een Nederlandse gebruiker.
 
 ${description ? `Beschrijving van de gebruiker: "${description}"` : "De gebruiker heeft geen beschrijving gegeven."}
+${recentMealsContext}
+VRAGENBELEID - VOLG DIT STRIKT:
+1. Bij confidence "high": GEEN vragen stellen, gebruik je beste schatting
+2. Bij confidence "medium" of "low": stel ALLEEN een vraag als het antwoord >50 kcal verschil zou maken
+3. Als het verschil <50 kcal is: kies de meest waarschijnlijke optie en vermeld dit in de description
 
-Analyseer de maaltijd en geef een schatting van de voedingswaarden. Als je twijfelt over bepaalde aspecten (portiegroottes, ingrediënten die je niet kunt zien, bereidingswijze), stel dan 1-3 korte vervolgvragen.
+Wanneer GEEN vragen nodig zijn:
+- Standaard porties van herkenbare gerechten (bijv. "boterham met kaas", "appel", "koffie")
+- Als je een duidelijke foto hebt waarop de portie zichtbaar is
+- Bij simpele snacks/drankjes met weinig variatie
+- Als je uit de eetgeschiedenis kunt afleiden wat de gebruiker waarschijnlijk bedoelt
+
+Wanneer WEL een vraag nuttig is:
+- Verborgen caloriebomben: sauzen, olie, boter die >50 kcal kunnen toevoegen
+- Portiegrootte is totaal onduidelijk EN maakt >50 kcal verschil
+- Meerdere varianten mogelijk met >50 kcal verschil (bijv. friet met of zonder mayo)
+
+Als je aannames maakt, vermeld deze in de description, bijv:
+"Boterham kaas (aangenomen: 2 sneetjes bruin brood, 30g kaas - zoals je vaker eet)"
 
 Antwoord in JSON formaat:
 {
-  "description": "korte beschrijving van wat je ziet/begrijpt",
+  "description": "korte beschrijving, inclusief eventuele aannames",
   "calories": getal (beste schatting),
   "protein": getal in grammen,
   "carbs": getal in grammen,
   "fat": getal in grammen,
   "fiber": getal in grammen,
   "confidence": "low" | "medium" | "high",
-  "followUpQuestions": [
-    {
-      "id": "unieke_id",
-      "question": "vraag in het Nederlands",
-      "type": "choice" | "text",
-      "options": ["optie1", "optie2"] // alleen bij type "choice"
-    }
-  ]
+  "followUpQuestions": []
 }
 
-Voorbeelden van goede vervolgvragen:
-- "Hoeveel boter of olie is gebruikt bij de bereiding?" met opties ["Geen", "Weinig", "Normaal", "Veel"]
-- "Welk type brood is dit?" met opties ["Wit", "Bruin", "Volkoren", "Spelt"]
-- "Hoe groot schat je de portie?" met opties ["Klein", "Normaal", "Groot"]
-- "Zat er saus of dressing bij?" met opties ["Nee", "Ja, weinig", "Ja, normaal", "Ja, veel"]
+BELANGRIJK: followUpQuestions mag LEEG zijn (en is dat meestal). Voeg alleen vragen toe als ze echt nodig zijn volgens bovenstaand beleid.
+
+Als je toch een vraag stelt, gebruik dit formaat:
+{
+  "id": "unieke_id",
+  "question": "vraag in het Nederlands",
+  "type": "choice" | "text",
+  "options": ["optie1", "optie2"] // alleen bij type "choice"
+}
 
 Geef ALLEEN de JSON terug, geen andere tekst.`;
     }

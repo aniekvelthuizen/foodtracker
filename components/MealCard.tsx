@@ -1,11 +1,12 @@
 "use client";
 
 import { Meal, MEAL_TYPES } from "@/types";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, Pencil } from "lucide-react";
+import { Trash2, Pencil, Clock, Flame } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface MealCardProps {
   meal: Meal;
@@ -22,71 +23,93 @@ export function MealCard({ meal, onDelete, showEdit = true }: MealCardProps) {
   const mealTypeInfo = getMealTypeInfo(meal.meal_type);
   
   return (
-    <Card>
-      <CardContent className="p-3">
-        <div className="flex gap-3">
-          {meal.photo_url && (
-            <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md">
-              <Image
-                src={meal.photo_url}
-                alt={meal.description}
-                fill
-                className="object-cover"
-              />
+    <Card className="overflow-hidden hover:shadow-md transition-shadow !py-0">
+      <div className="flex">
+        {/* Photo section */}
+        {meal.photo_url && (
+          <div className="relative w-24 h-auto min-h-[100px] flex-shrink-0">
+            <Image
+              src={meal.photo_url}
+              alt={meal.description}
+              fill
+              className="object-cover"
+            />
+          </div>
+        )}
+        
+        {/* Content section */}
+        <div className="flex-1 p-4">
+          {/* Header row: meal type, time, and actions */}
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {mealTypeInfo && (
+                <span className="inline-flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5">
+                  <span>{mealTypeInfo.icon}</span>
+                  <span>{mealTypeInfo.label}</span>
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {meal.time.slice(0, 5)}
+              </span>
             </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="font-medium truncate">{meal.description}</p>
-                <p className="text-sm text-muted-foreground">
-                  {mealTypeInfo && <span className="mr-1">{mealTypeInfo.icon}</span>}
-                  {mealTypeInfo?.label && <span className="mr-1">{mealTypeInfo.label} •</span>}
-                  {meal.time.slice(0, 5)}
-                </p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="font-semibold">{meal.calories} kcal</p>
-              </div>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
-                E: {meal.protein}g
-              </span>
-              <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300">
-                K: {meal.carbs}g
-              </span>
-              <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/50 dark:text-red-300">
-                V: {meal.fat}g
-              </span>
+            <div className="flex items-center gap-0.5">
+              {showEdit && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-primary cursor-pointer"
+                  asChild
+                >
+                  <Link href={`/meal/${meal.id}`}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive cursor-pointer"
+                  onClick={() => onDelete(meal.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           </div>
-          <div className="flex flex-col gap-1 flex-shrink-0">
-            {showEdit && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-primary"
-                asChild
-              >
-                <Link href={`/meal/${meal.id}`}>
-                  <Pencil className="h-4 w-4" />
-                </Link>
-              </Button>
-            )}
-            {onDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                onClick={() => onDelete(meal.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
+          
+          {/* Description */}
+          <p className="font-medium text-sm leading-snug mb-2 line-clamp-2">
+            {meal.description}
+          </p>
+          
+          {/* Macros row */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="text-xs text-muted-foreground">{Math.round(meal.protein)}g</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                <span className="text-xs text-muted-foreground">{Math.round(meal.carbs)}g</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="text-xs text-muted-foreground">{Math.round(meal.fat)}g</span>
+              </div>
+            </div>
+            
+            {/* Calories badge */}
+            <div className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500/10 to-red-500/10 dark:from-orange-500/20 dark:to-red-500/20 rounded-full px-2.5 py-1">
+              <Flame className="h-3.5 w-3.5 text-orange-500" />
+              <span className="text-sm font-semibold">{Math.round(meal.calories)}</span>
+              <span className="text-xs text-muted-foreground">kcal</span>
+            </div>
           </div>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }

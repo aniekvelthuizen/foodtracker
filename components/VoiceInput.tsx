@@ -71,6 +71,20 @@ export function VoiceInput({
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const shouldRestartRef = useRef(false);
+  
+  // Use refs to access current values without re-running useEffect
+  const valueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+  
+  // Keep refs in sync with props
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+  
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     // Check if speech recognition is supported
@@ -101,44 +115,82 @@ export function VoiceInput({
       }
 
       if (finalTranscript) {
-        onChange(value + (value ? " " : "") + finalTranscript);
+        const currentValue = valueRef.current;
+        onChangeRef.current(currentValue + (currentValue ? " " : "") + finalTranscript);
       }
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error("Speech recognition error:", event.error);
-      setIsListening(false);
 
-      if (event.error === "not-allowed") {
-        toast.error("Microfoontoegang geweigerd. Sta toegang toe in je browser.");
-      } else if (event.error !== "aborted") {
-        toast.error("Spraakherkenning mislukt. Probeer opnieuw.");
+      switch (event.error) {
+        case "not-allowed":
+          shouldRestartRef.current = false;
+          setIsListening(false);
+          toast.error("Microfoontoegang geweigerd. Sta toegang toe in je browser.");
+          break;
+        case "no-speech":
+          // No speech detected - this is normal, don't show error
+          // Recognition will automatically restart via onend
+          break;
+        case "audio-capture":
+          shouldRestartRef.current = false;
+          setIsListening(false);
+          toast.error("Geen microfoon gevonden of microfoon is in gebruik.");
+          break;
+        case "network":
+          shouldRestartRef.current = false;
+          setIsListening(false);
+          toast.error("Netwerkfout. Controleer je internetverbinding.");
+          break;
+        case "aborted":
+          // User stopped - no error needed
+          break;
+        default:
+          // For other errors, try to restart silently
+          // Only show error if it keeps failing
+          break;
       }
     };
 
     recognition.onend = () => {
-      setIsListening(false);
+      // Auto-restart if user hasn't explicitly stopped
+      if (shouldRestartRef.current) {
+        try {
+          recognition.start();
+        } catch (error) {
+          // Failed to restart, stop listening
+          shouldRestartRef.current = false;
+          setIsListening(false);
+        }
+      } else {
+        setIsListening(false);
+      }
     };
 
     recognitionRef.current = recognition;
 
     return () => {
+      shouldRestartRef.current = false;
       recognition.abort();
     };
-  }, [onChange, value]);
+  }, []); // Now runs only once on mount
 
   const toggleListening = () => {
     if (!recognitionRef.current) return;
 
     if (isListening) {
+      shouldRestartRef.current = false;
       recognitionRef.current.stop();
       setIsListening(false);
     } else {
       try {
+        shouldRestartRef.current = true;
         recognitionRef.current.start();
         setIsListening(true);
       } catch (error) {
         console.error("Failed to start speech recognition:", error);
+        shouldRestartRef.current = false;
         toast.error("Kon spraakherkenning niet starten");
       }
     }

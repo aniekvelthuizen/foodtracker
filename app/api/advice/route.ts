@@ -68,7 +68,7 @@ BELANGRIJK: De gebruiker is vandaag ongesteld. Houd hier rekening mee:
 - Wees extra begripvol en ondersteunend in je advies`
       : "";
 
-    const prompt = `Je bent een Nederlandse voedingsadviseur. Geef kort, praktisch advies (max 2-3 zinnen) voor wat de gebruiker nog kan eten.
+    const prompt = `Je bent een Nederlandse voedingsadviseur. Geef praktisch advies in bullet points.
 
 Gebruikersprofiel:
 - Doelen: ${goalsText}
@@ -94,9 +94,24 @@ Nog nodig:
 
 Suggereer ${mealContext} (niet een maaltijd die al gelogd is!).
 
-Geef een persoonlijk, praktisch advies. Noem concrete voedingsmiddelen met hoeveelheden. ${isMenstruation ? "Verwijs subtiel naar ijzer/magnesium-rijke opties." : "Focus op het belangrijkste tekort (meestal eiwit bij sportdoelen)."} Gebruik een vriendelijke, motiverende toon.
+GEEF JE ANTWOORD IN DIT EXACTE FORMAT:
+• [Korte status over hoe de dag gaat - 1 zin]
+• [Waar je op moet letten bij ${mealContext}, bijv. "Focus op eiwitrijk: kip, vis, eieren, tofu, peulvruchten of zuivel"]
+• [2-3 flexibele opties die je waarschijnlijk in huis hebt, gescheiden door " of "]
+• [Optioneel: snelle tip]
 
-Als de gebruiker al (bijna) genoeg heeft gegeten of alle hoofdmaaltijden al heeft gehad, geef dan een compliment en suggereer eventueel een lichte snack of zeg dat het goed is zo.`;
+REGELS:
+- Begin elke regel met • (bullet point)
+- Maximaal 3-4 bullets
+- NIET te specifiek met exacte hoeveelheden - geef CATEGORIEËN en OPTIES
+- Geef altijd meerdere alternatieven zodat de gebruiker kan kiezen wat ze in huis heeft
+- Voorbeelden van goede suggesties:
+  * "Eiwitrijk: kip, vis, ei, cottage cheese, of peulvruchten"
+  * "Vezelrijk: groenten, volkoren producten, of fruit"
+  * "Combineer bijv. een ei-gerecht, wrap met kip, of yoghurt met noten"
+- ${isMenstruation ? "Noem ijzer/magnesium-rijke opties: spinazie, rode biet, noten, pure chocolade, peulvruchten." : "Focus op het belangrijkste tekort."}
+- Gebruik een vriendelijke toon
+- Als de gebruiker al genoeg heeft: geef een compliment en zeg dat het goed is zo`;
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
