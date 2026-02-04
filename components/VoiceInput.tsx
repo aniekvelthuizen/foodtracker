@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,18 @@ export function VoiceInput({
   const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = "auto";
+      // Set height to scrollHeight to fit content
+      textarea.style.height = `${Math.max(100, textarea.scrollHeight)}px`;
+    }
+  }, [value]);
 
   const startRecording = async () => {
     try {
@@ -117,12 +129,13 @@ export function VoiceInput({
   return (
     <div className="relative">
       <Textarea
+        ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled || isTranscribing}
         className={cn(
-          "min-h-[100px] pr-14 resize-none",
+          "min-h-[100px] pr-14 resize-none overflow-hidden",
           isRecording && "border-blue-500 focus-visible:ring-blue-500"
         )}
       />

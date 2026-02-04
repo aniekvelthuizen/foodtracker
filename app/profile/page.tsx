@@ -104,21 +104,38 @@ export default function ProfilePage() {
       // Calculate TDEE (even if using custom, store calculated as backup)
       const tdee = calculateTDEE(profile as UserProfile);
 
+      // Explicitly pick only the fields we want to save
+      const profileData = {
+        id: user.id,
+        weight: profile.weight ?? null,
+        height: profile.height ?? null,
+        age: profile.age ?? null,
+        gender: profile.gender ?? null,
+        activity_level: profile.activity_level ?? null,
+        goals: profile.goals ?? [],
+        tdee: tdee ?? null,
+        custom_tdee: profile.custom_tdee ?? null,
+        use_custom_tdee: profile.use_custom_tdee ?? false,
+        calorie_adjustment: profile.calorie_adjustment ?? null,
+        target_weight: profile.target_weight ?? null,
+        workout_calorie_percentage: profile.workout_calorie_percentage ?? 100,
+        updated_at: new Date().toISOString(),
+      };
+
       const { error } = await supabase
         .from("profiles")
-        .upsert({
-          id: user.id,
-          ...profile,
-          tdee,
-          updated_at: new Date().toISOString(),
-        });
+        .upsert(profileData);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error:", error);
+        throw new Error(error.message || "Database error");
+      }
 
       toast.success("Profiel opgeslagen!");
     } catch (error) {
       console.error("Error saving profile:", error);
-      toast.error("Kon profiel niet opslaan");
+      const errorMessage = error instanceof Error ? error.message : "Onbekende fout";
+      toast.error(`Kon profiel niet opslaan: ${errorMessage}`);
     } finally {
       setIsSaving(false);
     }
