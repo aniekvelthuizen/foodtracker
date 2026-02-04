@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Navigation } from "@/components/Navigation";
@@ -13,6 +13,7 @@ import { ArrowLeft, Loader2, Check, Watch } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { UserProfile } from "@/types";
 
 // Simplified workout presets
 const WORKOUT_TYPES = [
@@ -34,6 +35,28 @@ export default function WorkoutPage() {
   const [caloriesBurned, setCaloriesBurned] = useState<number | "">("");
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (data) setProfile(data);
+    };
+    loadProfile();
+  }, []);
+
+  // Calculate adjusted calories based on user's preference
+  const workoutPercentage = profile?.workout_calorie_percentage ?? 100;
+  const adjustedCalories = caloriesBurned ? Math.round(Number(caloriesBurned) * (workoutPercentage / 100)) : 0;
 
   const handleSave = async () => {
     const workoutType = selectedType === "Anders" ? customType || "Anders" : selectedType;
@@ -190,12 +213,18 @@ export default function WorkoutPage() {
               <div className="flex items-center justify-between">
                 <span className="font-medium">Extra calorieën vandaag</span>
                 <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                  +{caloriesBurned} kcal
+                  +{adjustedCalories} kcal
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Je mag {caloriesBurned} kcal extra eten
-              </p>
+              {workoutPercentage < 100 ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {workoutPercentage}% van {caloriesBurned} kcal (ingesteld in je profiel)
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Je mag {caloriesBurned} kcal extra eten
+                </p>
+              )}
             </CardContent>
           </Card>
         )}

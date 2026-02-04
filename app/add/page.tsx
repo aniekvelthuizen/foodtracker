@@ -56,12 +56,26 @@ export default function AddMealPage() {
     fiber: 0,
   });
 
-  // Editable nutrition values
-  const [calories, setCalories] = useState(0);
-  const [protein, setProtein] = useState(0);
-  const [carbs, setCarbs] = useState(0);
-  const [fat, setFat] = useState(0);
-  const [fiber, setFiber] = useState(0);
+  // Editable nutrition values (stored as strings for input, converted to numbers when needed)
+  const [caloriesInput, setCaloriesInput] = useState("0");
+  const [proteinInput, setProteinInput] = useState("0");
+  const [carbsInput, setCarbsInput] = useState("0");
+  const [fatInput, setFatInput] = useState("0");
+  const [fiberInput, setFiberInput] = useState("0");
+
+  // Helper to parse input string to number (supports comma and dot)
+  const parseInput = (val: string): number => {
+    const normalized = val.replace(",", ".");
+    const num = parseFloat(normalized);
+    return isNaN(num) ? 0 : num;
+  };
+
+  // Computed number values for calculations
+  const calories = parseInput(caloriesInput);
+  const protein = parseInput(proteinInput);
+  const carbs = parseInput(carbsInput);
+  const fat = parseInput(fatInput);
+  const fiber = parseInput(fiberInput);
 
   // Fetch profile, targets, today's totals, and recent meals on mount
   useEffect(() => {
@@ -169,11 +183,11 @@ export default function AddMealPage() {
       setAnalysis(data);
 
       // Set initial values
-      setCalories(data.calories);
-      setProtein(data.protein);
-      setCarbs(data.carbs);
-      setFat(data.fat);
-      setFiber(data.fiber);
+      setCaloriesInput(String(data.calories));
+      setProteinInput(String(data.protein));
+      setCarbsInput(String(data.carbs));
+      setFatInput(String(data.fat));
+      setFiberInput(String(data.fiber));
 
       // Check if there are follow-up questions
       if (data.followUpQuestions && data.followUpQuestions.length > 0) {
@@ -224,11 +238,11 @@ export default function AddMealPage() {
       setAnalysis(data);
 
       // Update values with refined analysis
-      setCalories(data.calories);
-      setProtein(data.protein);
-      setCarbs(data.carbs);
-      setFat(data.fat);
-      setFiber(data.fiber);
+      setCaloriesInput(String(data.calories));
+      setProteinInput(String(data.protein));
+      setCarbsInput(String(data.carbs));
+      setFatInput(String(data.fat));
+      setFiberInput(String(data.fiber));
 
       setStep("review");
     } catch (error) {
@@ -249,11 +263,11 @@ export default function AddMealPage() {
       fiber: favorite.fiber,
       confidence: "high",
     });
-    setCalories(favorite.calories);
-    setProtein(favorite.protein);
-    setCarbs(favorite.carbs);
-    setFat(favorite.fat);
-    setFiber(favorite.fiber);
+    setCaloriesInput(String(favorite.calories));
+    setProteinInput(String(favorite.protein));
+    setCarbsInput(String(favorite.carbs));
+    setFatInput(String(favorite.fat));
+    setFiberInput(String(favorite.fiber));
     if (favorite.default_meal_type) {
       setMealType(favorite.default_meal_type);
     }
@@ -301,11 +315,11 @@ export default function AddMealPage() {
       fiber: totalFiber,
       confidence: "high",
     });
-    setCalories(totalCalories);
-    setProtein(totalProtein);
-    setCarbs(totalCarbs);
-    setFat(totalFat);
-    setFiber(totalFiber);
+    setCaloriesInput(String(totalCalories));
+    setProteinInput(String(totalProtein));
+    setCarbsInput(String(totalCarbs));
+    setFatInput(String(totalFat));
+    setFiberInput(String(totalFiber));
     setDescription(ingredientNames);
     setStep("review");
 
@@ -834,10 +848,11 @@ export default function AddMealPage() {
                     </div>
                     <div className="flex items-center gap-1">
                       <Input
-                        type="number"
-                        value={calories}
-                        onChange={(e) => setCalories(Number(e.target.value))}
-                        className="w-20 h-8 text-right text-lg font-bold bg-transparent border-none focus-visible:ring-1 focus-visible:ring-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        type="text"
+                        inputMode="decimal"
+                        value={caloriesInput}
+                        onChange={(e) => setCaloriesInput(e.target.value)}
+                        className="w-20 h-8 text-right text-lg font-bold bg-transparent border-none focus-visible:ring-1 focus-visible:ring-primary"
                       />
                       <span className="text-sm text-muted-foreground">kcal</span>
                     </div>
@@ -882,12 +897,13 @@ export default function AddMealPage() {
                         <span className="text-sm">Eiwit</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          value={protein}
-                          onChange={(e) => setProtein(Number(e.target.value))}
-                          className="w-16 h-7 text-right text-sm font-medium bg-transparent border-none focus-visible:ring-1 focus-visible:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={proteinInput}
+                        onChange={(e) => setProteinInput(e.target.value)}
+                        className="w-16 h-7 text-right text-sm font-medium bg-transparent border-none focus-visible:ring-1 focus-visible:ring-blue-500"
+                      />
                         <span className="text-xs text-muted-foreground w-4">g</span>
                       </div>
                     </div>
@@ -928,12 +944,13 @@ export default function AddMealPage() {
                         <span className="text-sm">Koolhydraten</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          value={carbs}
-                          onChange={(e) => setCarbs(Number(e.target.value))}
-                          className="w-16 h-7 text-right text-sm font-medium bg-transparent border-none focus-visible:ring-1 focus-visible:ring-yellow-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={carbsInput}
+                        onChange={(e) => setCarbsInput(e.target.value)}
+                        className="w-16 h-7 text-right text-sm font-medium bg-transparent border-none focus-visible:ring-1 focus-visible:ring-yellow-500"
+                      />
                         <span className="text-xs text-muted-foreground w-4">g</span>
                       </div>
                     </div>
@@ -974,12 +991,13 @@ export default function AddMealPage() {
                         <span className="text-sm">Vet</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          value={fat}
-                          onChange={(e) => setFat(Number(e.target.value))}
-                          className="w-16 h-7 text-right text-sm font-medium bg-transparent border-none focus-visible:ring-1 focus-visible:ring-red-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={fatInput}
+                        onChange={(e) => setFatInput(e.target.value)}
+                        className="w-16 h-7 text-right text-sm font-medium bg-transparent border-none focus-visible:ring-1 focus-visible:ring-red-500"
+                      />
                         <span className="text-xs text-muted-foreground w-4">g</span>
                       </div>
                     </div>
@@ -1020,12 +1038,13 @@ export default function AddMealPage() {
                         <span className="text-sm">Vezels</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          value={fiber}
-                          onChange={(e) => setFiber(Number(e.target.value))}
-                          className="w-16 h-7 text-right text-sm font-medium bg-transparent border-none focus-visible:ring-1 focus-visible:ring-green-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={fiberInput}
+                        onChange={(e) => setFiberInput(e.target.value)}
+                        className="w-16 h-7 text-right text-sm font-medium bg-transparent border-none focus-visible:ring-1 focus-visible:ring-green-500"
+                      />
                         <span className="text-xs text-muted-foreground w-4">g</span>
                       </div>
                     </div>

@@ -68,28 +68,38 @@ Geef ALLEEN de JSON terug, geen andere tekst.`;
 
 ${description ? `Beschrijving van de gebruiker: "${description}"` : "De gebruiker heeft geen beschrijving gegeven."}
 ${recentMealsContext}
-VRAGENBELEID - VOLG DIT STRIKT:
-1. Bij confidence "high": GEEN vragen stellen, gebruik je beste schatting
-2. Bij confidence "medium" of "low": stel ALLEEN een vraag als het antwoord >50 kcal verschil zou maken
-3. Als het verschil <50 kcal is: kies de meest waarschijnlijke optie en vermeld dit in de description
+VRAGENBELEID - SLIMME BALANS:
 
-Wanneer GEEN vragen nodig zijn:
-- Standaard porties van herkenbare gerechten (bijv. "boterham met kaas", "appel", "koffie")
-- Als je een duidelijke foto hebt waarop de portie zichtbaar is
-- Bij simpele snacks/drankjes met weinig variatie
-- Als je uit de eetgeschiedenis kunt afleiden wat de gebruiker waarschijnlijk bedoelt
+STAP 1: Check eerst de eetgeschiedenis
+- Als de maaltijd LIJKT op iets uit de eetgeschiedenis → gebruik die waarden als basis, GEEN vragen
+- Voorbeeld: gebruiker zegt "koffie" en heeft eerder "koffie met melk: 45 kcal" gelogd → neem 45 kcal aan
 
-Wanneer WEL een vraag nuttig is:
-- Verborgen caloriebomben: sauzen, olie, boter die >50 kcal kunnen toevoegen
-- Portiegrootte is totaal onduidelijk EN maakt >50 kcal verschil
-- Meerdere varianten mogelijk met >50 kcal verschil (bijv. friet met of zonder mayo)
+STAP 2: Bepaal of vragen nodig zijn (max 2 vragen!)
+Context-afhankelijke drempel:
+- Kleine maaltijd/snack (<200 kcal): vraag bij >25 kcal verschil
+- Normale maaltijd (200-500 kcal): vraag bij >30 kcal verschil  
+- Grote maaltijd (>500 kcal): vraag bij >50 kcal verschil
 
-Als je aannames maakt, vermeld deze in de description, bijv:
-"Boterham kaas (aangenomen: 2 sneetjes bruin brood, 30g kaas - zoals je vaker eet)"
+ALTIJD vragen bij deze "verborgen calorieën" (ongeacht drempel):
+- Sauzen en dressings (mayo, ketchup, pesto, dressing)
+- Bereidingswijze met vet (gebakken in boter/olie vs droog/gestoomd)
+- Toppings bij warme maaltijden (kaas, room, croutons)
+- Broodbeleg spreads (boter, margarine, pindakaas hoeveelheid)
+
+NOOIT vragen bij:
+- Items die matchen met eetgeschiedenis (gebruik die waarden)
+- Standaard fruit en groente zonder toevoegingen
+- Dranken met weinig variatie (water, thee zonder suiker)
+- Als de foto duidelijk de portie en ingrediënten toont
+
+STAP 3: Maak aannames transparant
+Vermeld altijd je aannames in de description:
+"Boterham kaas (2 sneetjes bruin, 30g kaas, geen boter - zoals je gebruikelijk eet)"
+"Salade (aangenomen: zonder dressing - vraag gesteld)"
 
 Antwoord in JSON formaat:
 {
-  "description": "korte beschrijving, inclusief eventuele aannames",
+  "description": "korte beschrijving met aannames tussen haakjes",
   "calories": getal (beste schatting),
   "protein": getal in grammen,
   "carbs": getal in grammen,
@@ -99,15 +109,18 @@ Antwoord in JSON formaat:
   "followUpQuestions": []
 }
 
-BELANGRIJK: followUpQuestions mag LEEG zijn (en is dat meestal). Voeg alleen vragen toe als ze echt nodig zijn volgens bovenstaand beleid.
-
-Als je toch een vraag stelt, gebruik dit formaat:
+followUpQuestions formaat (MAX 2 vragen, vaak 0-1):
 {
   "id": "unieke_id",
-  "question": "vraag in het Nederlands",
+  "question": "korte vraag in het Nederlands",
   "type": "choice" | "text",
-  "options": ["optie1", "optie2"] // alleen bij type "choice"
+  "options": ["optie1", "optie2", "optie3"] // alleen bij type "choice", max 4 opties
 }
+
+Voorbeelden van goede vragen:
+- "Met saus of dressing?" met opties ["Geen", "Lichte hoeveelheid", "Normale hoeveelheid"]
+- "Hoe is het bereid?" met opties ["Gebakken in boter/olie", "Droog gebakken", "Gestoomd/gekookt"]
+- "Zat er boter op het brood?" met opties ["Ja", "Nee"]
 
 Geef ALLEEN de JSON terug, geen andere tekst.`;
     }

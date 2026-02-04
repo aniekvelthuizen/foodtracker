@@ -19,6 +19,7 @@ create table if not exists profiles (
   use_custom_tdee boolean default false,  -- Use manual value?
   calorie_adjustment numeric,       -- Calorie deficit/surplus
   target_weight numeric,            -- Goal weight in kg
+  workout_calorie_percentage integer default 100,  -- How much of workout calories to add back (0-100)
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );
@@ -28,6 +29,7 @@ create table if not exists profiles (
 -- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS use_custom_tdee boolean default false;
 -- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS calorie_adjustment numeric;
 -- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS target_weight numeric;
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS workout_calorie_percentage integer default 100;
 
 -- Meals table
 create table if not exists meals (

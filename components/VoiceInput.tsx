@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useRef } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,185 +13,104 @@ interface VoiceInputProps {
   disabled?: boolean;
 }
 
-// Extend Window interface for speech recognition
-declare global {
-  interface Window {
-    webkitSpeechRecognition: new () => SpeechRecognition;
-    SpeechRecognition: new () => SpeechRecognition;
-  }
-}
-
-interface SpeechRecognition extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onresult: (event: SpeechRecognitionEvent) => void;
-  onerror: (event: SpeechRecognitionErrorEvent) => void;
-  onend: () => void;
-}
-
-interface SpeechRecognitionEvent {
-  resultIndex: number;
-  results: SpeechRecognitionResultList;
-}
-
-interface SpeechRecognitionResultList {
-  length: number;
-  item: (index: number) => SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-
-interface SpeechRecognitionResult {
-  isFinal: boolean;
-  length: number;
-  item: (index: number) => SpeechRecognitionAlternative;
-  [index: number]: SpeechRecognitionAlternative;
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string;
-  confidence: number;
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-  message: string;
-}
-
 export function VoiceInput({
   value,
   onChange,
   placeholder = "Beschrijf je maaltijd...",
   disabled,
 }: VoiceInputProps) {
-  const [isListening, setIsListening] = useState(false);
-  const [isSupported, setIsSupported] = useState(true);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const shouldRestartRef = useRef(false);
-  
-  // Use refs to access current values without re-running useEffect
-  const valueRef = useRef(value);
-  const onChangeRef = useRef(onChange);
-  
-  // Keep refs in sync with props
-  useEffect(() => {
-    valueRef.current = value;
-  }, [value]);
-  
-  useEffect(() => {
-    onChangeRef.current = onChange;
-  }, [onChange]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
-  useEffect(() => {
-    // Check if speech recognition is supported
-    const SpeechRecognitionAPI =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Use webm format which is well supported
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "audio/webm",
+      });
+      
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
 
-    if (!SpeechRecognitionAPI) {
-      setIsSupported(false);
-      return;
-    }
-
-    const recognition = new SpeechRecognitionAPI();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "nl-NL";
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
         }
-      }
+      };
 
-      if (finalTranscript) {
-        const currentValue = valueRef.current;
-        onChangeRef.current(currentValue + (currentValue ? " " : "") + finalTranscript);
-      }
-    };
+      mediaRecorder.onstop = async () => {
+        // Stop all tracks
+        stream.getTracks().forEach((track) => track.stop());
+        
+        // Create blob from chunks
+        const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
+        
+        // Send to Whisper API
+        await transcribeAudio(audioBlob);
+      };
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error("Speech recognition error:", event.error);
-
-      switch (event.error) {
-        case "not-allowed":
-          shouldRestartRef.current = false;
-          setIsListening(false);
-          toast.error("Microfoontoegang geweigerd. Sta toegang toe in je browser.");
-          break;
-        case "no-speech":
-          // No speech detected - this is normal, don't show error
-          // Recognition will automatically restart via onend
-          break;
-        case "audio-capture":
-          shouldRestartRef.current = false;
-          setIsListening(false);
-          toast.error("Geen microfoon gevonden of microfoon is in gebruik.");
-          break;
-        case "network":
-          shouldRestartRef.current = false;
-          setIsListening(false);
-          toast.error("Netwerkfout. Controleer je internetverbinding.");
-          break;
-        case "aborted":
-          // User stopped - no error needed
-          break;
-        default:
-          // For other errors, try to restart silently
-          // Only show error if it keeps failing
-          break;
-      }
-    };
-
-    recognition.onend = () => {
-      // Auto-restart if user hasn't explicitly stopped
-      if (shouldRestartRef.current) {
-        try {
-          recognition.start();
-        } catch (error) {
-          // Failed to restart, stop listening
-          shouldRestartRef.current = false;
-          setIsListening(false);
-        }
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Failed to start recording:", error);
+      if (error instanceof DOMException && error.name === "NotAllowedError") {
+        toast.error("Microfoontoegang geweigerd. Sta toegang toe in je browser.");
+      } else if (error instanceof DOMException && error.name === "NotFoundError") {
+        toast.error("Geen microfoon gevonden.");
       } else {
-        setIsListening(false);
+        toast.error("Kon opname niet starten.");
       }
-    };
+    }
+  };
 
-    recognitionRef.current = recognition;
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
 
-    return () => {
-      shouldRestartRef.current = false;
-      recognition.abort();
-    };
-  }, []); // Now runs only once on mount
+  const transcribeAudio = async (audioBlob: Blob) => {
+    setIsTranscribing(true);
+    
+    try {
+      // Create form data with audio file
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "recording.webm");
 
-  const toggleListening = () => {
-    if (!recognitionRef.current) return;
+      const response = await fetch("/api/transcribe", {
+        method: "POST",
+        body: formData,
+      });
 
-    if (isListening) {
-      shouldRestartRef.current = false;
-      recognitionRef.current.stop();
-      setIsListening(false);
+      if (!response.ok) {
+        throw new Error("Transcription failed");
+      }
+
+      const data = await response.json();
+      
+      if (data.text) {
+        // Append transcribed text to existing value
+        const newValue = value + (value ? " " : "") + data.text;
+        onChange(newValue);
+      }
+    } catch (error) {
+      console.error("Transcription error:", error);
+      toast.error("Kon spraak niet omzetten naar tekst.");
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
     } else {
-      try {
-        shouldRestartRef.current = true;
-        recognitionRef.current.start();
-        setIsListening(true);
-      } catch (error) {
-        console.error("Failed to start speech recognition:", error);
-        shouldRestartRef.current = false;
-        toast.error("Kon spraakherkenning niet starten");
-      }
+      startRecording();
     }
   };
 
@@ -202,35 +120,45 @@ export function VoiceInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        disabled={disabled}
+        disabled={disabled || isTranscribing}
         className={cn(
-          "min-h-[100px] pr-12 resize-none",
-          isListening && "border-red-500 focus-visible:ring-red-500"
+          "min-h-[100px] pr-14 resize-none",
+          isRecording && "border-blue-500 focus-visible:ring-blue-500"
         )}
       />
-      {isSupported && (
-        <Button
-          type="button"
-          variant={isListening ? "destructive" : "ghost"}
-          size="icon"
-          className={cn(
-            "absolute right-2 top-2 h-8 w-8",
-            isListening && "animate-pulse"
-          )}
-          onClick={toggleListening}
-          disabled={disabled}
-        >
-          {isListening ? (
-            <MicOff className="h-4 w-4" />
-          ) : (
-            <Mic className="h-4 w-4" />
-          )}
-        </Button>
+      <button
+        type="button"
+        className={cn(
+          "absolute right-2 top-2 h-10 w-10 rounded-full flex items-center justify-center transition-colors",
+          isRecording 
+            ? "bg-blue-500 text-white animate-pulse" 
+            : "bg-muted hover:bg-muted/80 text-muted-foreground",
+          (disabled || isTranscribing) && "opacity-50 cursor-not-allowed"
+        )}
+        onClick={toggleRecording}
+        disabled={disabled || isTranscribing}
+      >
+        {isTranscribing ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : isRecording ? (
+          <MicOff className="h-5 w-5" />
+        ) : (
+          <Mic className="h-5 w-5" />
+        )}
+      </button>
+      {isRecording && (
+        <div className="mt-2 flex items-center gap-2 text-sm text-blue-500">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+          </span>
+          <span>Opnemen... Klik om te stoppen</span>
+        </div>
       )}
-      {isListening && (
-        <div className="mt-2 flex items-center gap-2 text-sm text-red-500">
+      {isTranscribing && (
+        <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" />
-          <span>Luisteren...</span>
+          <span>Transcriberen met Whisper...</span>
         </div>
       )}
     </div>

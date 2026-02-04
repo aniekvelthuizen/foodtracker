@@ -83,9 +83,12 @@ export function calculateMacroTargets(
   }
 
   // Calculate macros
-  // High protein for muscle gain/preservation: 2g per kg bodyweight
-  // Otherwise: 1.6g per kg
-  const proteinPerKg = goals.includes("muscle_gain") || goals.includes("weight_loss") ? 2 : 1.6;
+  // Protein recommendations based on scientific meta-analyses:
+  // - 1.6g/kg is the optimal ceiling for muscle gain (no additional benefits above this)
+  // - 1.6g/kg also supports muscle preservation during weight loss
+  // - 1.2g/kg is sufficient for maintenance
+  // Source: Morton et al. meta-analysis, ISSN position stand
+  const proteinPerKg = goals.includes("muscle_gain") || goals.includes("weight_loss") ? 1.6 : 1.2;
   const protein = profile.weight ? Math.round(profile.weight * proteinPerKg) : Math.round(targetCalories * 0.25 / 4);
 
   // Fat: 25-30% of calories (use 27.5%)

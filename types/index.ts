@@ -19,6 +19,7 @@ export interface UserProfile {
   use_custom_tdee: boolean;           // Use manual value instead of calculation
   calorie_adjustment: number | null;  // Calorie deficit/surplus (e.g., -500 for weight loss)
   target_weight: number | null;       // Goal weight in kg
+  workout_calorie_percentage: number; // How much of workout calories to add back (0-100)
   created_at?: string;
   updated_at?: string;
 }
@@ -43,6 +44,37 @@ export const WEIGHT_GAIN_RATES: WeightLossRate[] = [
   { id: "lean", label: "Lean bulk", labelNL: "Lean bulk", adjustment: 250, weeklyLoss: "+0.25 kg/week" },
   { id: "normal", label: "Normal", labelNL: "Normaal", adjustment: 400, weeklyLoss: "+0.4 kg/week" },
 ];
+
+// Workout calorie percentage options
+export interface WorkoutCalorieOption {
+  id: string;
+  percentage: number;
+  labelNL: string;
+  description: string;
+}
+
+export const WORKOUT_CALORIE_OPTIONS: WorkoutCalorieOption[] = [
+  { id: "none", percentage: 0, labelNL: "0%", description: "Max" },
+  { id: "quarter", percentage: 25, labelNL: "25%", description: "Snel" },
+  { id: "half", percentage: 50, labelNL: "50%", description: "Normaal" },
+  { id: "most", percentage: 75, labelNL: "75%", description: "Rustig" },
+  { id: "all", percentage: 100, labelNL: "100%", description: "Alles" },
+];
+
+// Get suggested workout calorie percentage based on calorie adjustment
+export function getSuggestedWorkoutPercentage(calorieAdjustment: number | null, goal: string | null): number {
+  if (!goal || goal === "maintenance") return 100;
+  if (goal === "muscle_gain") return 100;
+  
+  // For weight loss, base on aggressiveness of deficit
+  if (!calorieAdjustment) return 50;
+  const deficit = Math.abs(calorieAdjustment);
+  
+  if (deficit >= 1000) return 0;   // Aggressive: don't eat back
+  if (deficit >= 750) return 25;   // Fast: eat back 25%
+  if (deficit >= 500) return 50;   // Normal: eat back 50%
+  return 75;                        // Slow: eat back 75%
+}
 
 // Meal types
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";

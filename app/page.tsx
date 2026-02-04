@@ -10,7 +10,7 @@ import { WorkoutCard } from "@/components/WorkoutCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Apple, Lightbulb, Dumbbell, Droplets, MessageCircle, Send, X } from "lucide-react";
+import { Loader2, Apple, Lightbulb, Dumbbell, Droplets, MessageCircle, Send, X, Info, Mic, MicOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -30,10 +30,15 @@ export default function DashboardPage() {
   
   // Chat state
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isSendingChat, setIsSendingChat] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -278,6 +283,74 @@ export default function DashboardPage() {
     setIsChatOpen(false);
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
+        await transcribeAudio(audioBlob);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error("Failed to start recording:", error);
+      toast.error("Kon opname niet starten");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const transcribeAudio = async (audioBlob: Blob) => {
+    setIsTranscribing(true);
+    try {
+      const formData = new FormData();
+      formData.append("audio", audioBlob, "recording.webm");
+
+      const response = await fetch("/api/transcribe", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error("Transcription failed");
+
+      const data = await response.json();
+      if (data.text) {
+        setChatInput((prev) => prev + (prev ? " " : "") + data.text);
+      }
+    } catch (error) {
+      console.error("Transcription error:", error);
+      toast.error("Kon spraak niet omzetten naar tekst");
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
   // Calculate totals
   const totals = {
     calories: meals.reduce((sum, m) => sum + m.calories, 0),
@@ -294,9 +367,11 @@ export default function DashboardPage() {
     ? calculateMacroTargets(profile, isMenstruating)
     : null;
 
-  // Adjust calorie target for workouts
+  // Adjust calorie target for workouts (using user's preferred percentage)
+  const workoutPercentage = profile?.workout_calorie_percentage ?? 100;
+  const adjustedWorkoutCalories = Math.round(totals.caloriesBurned * (workoutPercentage / 100));
   const adjustedCalorieTarget = targets
-    ? targets.calories + totals.caloriesBurned
+    ? targets.calories + adjustedWorkoutCalories
     : 0;
 
   const caloriePercentage = adjustedCalorieTarget
@@ -347,7 +422,10 @@ export default function DashboardPage() {
               <Progress value={caloriePercentage} className="h-3" />
               {totals.caloriesBurned > 0 && (
                 <p className="text-xs text-green-600 dark:text-green-400">
-                  +{totals.caloriesBurned} kcal door workouts
+                  +{adjustedWorkoutCalories} kcal door workouts
+                  {workoutPercentage < 100 && (
+                    <span className="text-muted-foreground"> ({workoutPercentage}% van {totals.caloriesBurned})</span>
+                  )}
                 </p>
               )}
             </div>
@@ -378,6 +456,15 @@ export default function DashboardPage() {
                   target={targets.fiber}
                   color="bg-green-500"
                 />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full h-8 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                  onClick={() => setIsInfoOpen(true)}
+                >
+                  Hoe wordt dit berekend?
+                  <Info className="ml-1 h-3 w-3" />
+                </Button>
               </div>
             )}
           </CardContent>
@@ -476,6 +563,96 @@ export default function DashboardPage() {
           </Card>
         )}
 
+        {/* Macro Info Dialog */}
+        <Dialog open={isInfoOpen} onOpenChange={setIsInfoOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5" />
+                Hoe worden je doelen berekend?
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 text-sm">
+              <div>
+                <h4 className="font-medium mb-1">Calorieën ({targets?.calories} kcal)</h4>
+                <p className="text-muted-foreground">
+                  Gebaseerd op je TDEE (dagelijkse energiebehoefte) van {profile?.tdee || profile?.custom_tdee} kcal
+                  {profile?.calorie_adjustment ? (
+                    <>, aangepast met {profile.calorie_adjustment > 0 ? '+' : ''}{profile.calorie_adjustment} kcal voor je doel</>
+                  ) : profile?.goals?.includes('weight_loss') ? (
+                    <>, minus 500 kcal voor afvallen</>
+                  ) : profile?.goals?.includes('muscle_gain') ? (
+                    <>, plus 300 kcal voor spieropbouw</>
+                  ) : null}.
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-1">Eiwit ({targets?.protein}g)</h4>
+                <p className="text-muted-foreground">
+                  {profile?.goals?.includes('muscle_gain') || profile?.goals?.includes('weight_loss') ? (
+                    <>1.6 gram per kg lichaamsgewicht ({profile?.weight} kg). Dit is het wetenschappelijk optimale niveau voor spieropbouw en spierbehoud tijdens afvallen.</>
+                  ) : (
+                    <>1.2 gram per kg lichaamsgewicht ({profile?.weight} kg). Dit is voldoende voor onderhoud.</>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 italic">
+                  Bron: Meta-analyse Morton et al., ISSN position stand
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-1">Vet ({targets?.fat}g)</h4>
+                <p className="text-muted-foreground">
+                  27.5% van je calorieën. Dit zit binnen de WHO-richtlijn van 25-35%.
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-1">Koolhydraten ({targets?.carbs}g)</h4>
+                <p className="text-muted-foreground">
+                  De resterende calorieën na eiwit en vet. Koolhydraten zijn je belangrijkste energiebron voor training.
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-1">Vezels ({targets?.fiber}g)</h4>
+                <p className="text-muted-foreground">
+                  14 gram per 1000 kcal, conform de voedingsrichtlijnen.
+                </p>
+              </div>
+
+              {dailyLog?.is_menstruation && profile?.gender === 'female' && (
+                <div className="bg-pink-50 dark:bg-pink-950/30 p-3 rounded-lg">
+                  <h4 className="font-medium mb-1 text-pink-700 dark:text-pink-300">Menstruatie-aanpassing</h4>
+                  <p className="text-muted-foreground">
+                    Je calorie-doel is vandaag met 7% verhoogd omdat je lichaam tijdens de menstruatie meer energie verbruikt.
+                  </p>
+                </div>
+              )}
+
+              {totals.caloriesBurned > 0 && (
+                <div className="bg-green-50 dark:bg-green-950/30 p-3 rounded-lg">
+                  <h4 className="font-medium mb-1 text-green-700 dark:text-green-300">Workout calorieën</h4>
+                  <p className="text-muted-foreground">
+                    {workoutPercentage < 100 ? (
+                      <>Je hebt {totals.caloriesBurned} kcal verbrand. Hiervan wordt {workoutPercentage}% ({adjustedWorkoutCalories} kcal) bij je budget opgeteld. Dit kun je aanpassen in je profiel.</>
+                    ) : (
+                      <>Je hebt {totals.caloriesBurned} kcal verbrand. Dit wordt volledig bij je budget opgeteld.</>
+                    )}
+                  </p>
+                </div>
+              )}
+
+              <Button asChild className="w-full cursor-pointer">
+                <Link href="/profile" onClick={() => setIsInfoOpen(false)}>
+                  Aanpassen in profiel
+                </Link>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Chat Dialog */}
         <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
           <DialogContent className="h-[90vh] max-h-[90vh] w-full max-w-lg flex flex-col p-0">
@@ -511,7 +688,42 @@ export default function DashboardPage() {
             
             {/* Input area */}
             <div className="border-t px-4 py-3">
+              {isRecording && (
+                <div className="mb-2 flex items-center gap-2 text-sm text-blue-500">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                  </span>
+                  <span>Opnemen... Klik om te stoppen</span>
+                </div>
+              )}
+              {isTranscribing && (
+                <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Transcriberen met Whisper...</span>
+                </div>
+              )}
               <div className="flex gap-2">
+                <button
+                  type="button"
+                  className={cn(
+                    "h-10 w-10 rounded-full flex items-center justify-center transition-colors flex-shrink-0",
+                    isRecording 
+                      ? "bg-blue-500 text-white animate-pulse" 
+                      : "bg-muted hover:bg-muted/80 text-muted-foreground",
+                    (isSendingChat || isTranscribing) && "opacity-50 cursor-not-allowed"
+                  )}
+                  onClick={toggleRecording}
+                  disabled={isSendingChat || isTranscribing}
+                >
+                  {isTranscribing ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : isRecording ? (
+                    <MicOff className="h-5 w-5" />
+                  ) : (
+                    <Mic className="h-5 w-5" />
+                  )}
+                </button>
                 <Input
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
@@ -522,7 +734,7 @@ export default function DashboardPage() {
                       sendChatMessage();
                     }
                   }}
-                  disabled={isSendingChat}
+                  disabled={isSendingChat || isTranscribing}
                   className="flex-1"
                 />
                 <Button

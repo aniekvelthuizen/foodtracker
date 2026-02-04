@@ -15,10 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, LogOut, Save, Watch, Calculator, Target, Star, ChevronRight } from "lucide-react";
+import { Loader2, LogOut, Save, Watch, Calculator, Target, ChevronRight, Dumbbell, History } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { UserProfile, WEIGHT_LOSS_RATES, WEIGHT_GAIN_RATES } from "@/types";
+import { UserProfile, WEIGHT_LOSS_RATES, WEIGHT_GAIN_RATES, WORKOUT_CALORIE_OPTIONS, getSuggestedWorkoutPercentage } from "@/types";
 import { calculateTDEE, calculateMacroTargets, getEffectiveTDEE } from "@/lib/calories";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,7 @@ export default function ProfilePage() {
     use_custom_tdee: false,
     calorie_adjustment: null,
     target_weight: null,
+    workout_calorie_percentage: 100,
   });
 
   useEffect(() => {
@@ -151,11 +152,20 @@ export default function ProfilePage() {
       newAdjustment = 300; // Default surplus
     }
     
-    setProfile({ ...profile, goals: newGoals, calorie_adjustment: newAdjustment });
+    // Set suggested workout calorie percentage based on goal
+    const suggestedPercentage = getSuggestedWorkoutPercentage(newAdjustment, goal);
+    
+    setProfile({ ...profile, goals: newGoals, calorie_adjustment: newAdjustment, workout_calorie_percentage: suggestedPercentage });
   };
 
   const selectCalorieAdjustment = (adjustment: number) => {
-    setProfile({ ...profile, calorie_adjustment: adjustment });
+    const currentGoal = profile.goals?.[0] || null;
+    const suggestedPercentage = getSuggestedWorkoutPercentage(adjustment, currentGoal);
+    setProfile({ ...profile, calorie_adjustment: adjustment, workout_calorie_percentage: suggestedPercentage });
+  };
+
+  const selectWorkoutPercentage = (percentage: number) => {
+    setProfile({ ...profile, workout_calorie_percentage: percentage });
   };
 
   // Calculate preview
@@ -433,6 +443,51 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
+        {/* Workout Calorie Settings */}
+        {(isWeightLoss || isMuscleGain || profile.goals?.includes("maintenance")) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Dumbbell className="h-5 w-5" />
+                Workout calorieën
+              </CardTitle>
+              <CardDescription>
+                Hoeveel van je verbrande workout-calorieën wil je terugeten?
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                {WORKOUT_CALORIE_OPTIONS.map((option) => (
+                  <Button
+                    key={option.id}
+                    variant={profile.workout_calorie_percentage === option.percentage ? "default" : "outline"}
+                    size="sm"
+                    className={cn(
+                      "flex-1 h-10",
+                      profile.workout_calorie_percentage === option.percentage && "ring-2 ring-primary ring-offset-1"
+                    )}
+                    onClick={() => selectWorkoutPercentage(option.percentage)}
+                  >
+                    {option.percentage}%
+                  </Button>
+                ))}
+              </div>
+              
+              <div className="rounded-lg bg-muted/50 p-3 text-sm">
+                <p className="text-muted-foreground">
+                  {profile.workout_calorie_percentage === 100 ? (
+                    <>Bij een workout van 400 kcal krijg je <strong>400 kcal</strong> extra te eten.</>
+                  ) : profile.workout_calorie_percentage === 0 ? (
+                    <>Workout calorieën worden niet bij je dagbudget opgeteld. Dit maximaliseert je deficit.</>
+                  ) : (
+                    <>Bij een workout van 400 kcal krijg je <strong>{Math.round(400 * (profile.workout_calorie_percentage || 100) / 100)} kcal</strong> extra te eten.</>
+                  )}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Results Preview */}
         {effectiveTdee && macros && (
           <Card className="border-primary/50 bg-primary/5">
@@ -508,18 +563,18 @@ export default function ProfilePage() {
           )}
         </Button>
 
-        {/* Favorites & Ingredients */}
+        {/* History */}
         <Card>
           <CardContent className="py-0">
             <Link 
-              href="/favorites" 
+              href="/history" 
               className="flex items-center justify-between py-4 hover:opacity-70 transition-opacity"
             >
               <div className="flex items-center gap-3">
-                <Star className="h-5 w-5 text-muted-foreground" />
+                <History className="h-5 w-5 text-muted-foreground" />
                 <div>
-                  <p className="font-medium">Favorieten & Ingrediënten</p>
-                  <p className="text-sm text-muted-foreground">Beheer je opgeslagen maaltijden</p>
+                  <p className="font-medium">Geschiedenis</p>
+                  <p className="text-sm text-muted-foreground">Bekijk je eerdere dagen</p>
                 </div>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
