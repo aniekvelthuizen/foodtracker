@@ -1,12 +1,12 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(request: Request) {
   try {
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     const formData = await request.formData();
     const audioFile = formData.get("audio") as File;
 
@@ -17,7 +17,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Convert File to the format OpenAI expects
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: "whisper-1",
