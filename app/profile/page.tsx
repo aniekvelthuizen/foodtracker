@@ -153,7 +153,7 @@ export default function ProfilePage() {
     }
     
     // Set suggested workout calorie percentage based on goal
-    const suggestedPercentage = getSuggestedWorkoutPercentage(newAdjustment, goal);
+    const suggestedPercentage = getSuggestedWorkoutPercentage(newAdjustment ?? null, goal);
     
     setProfile({ ...profile, goals: newGoals, calorie_adjustment: newAdjustment, workout_calorie_percentage: suggestedPercentage });
   };
