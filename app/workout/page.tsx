@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Navigation } from "@/components/Navigation";
@@ -36,6 +36,7 @@ export default function WorkoutPage() {
   const [notes, setNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -53,6 +54,15 @@ export default function WorkoutPage() {
     };
     loadProfile();
   }, []);
+
+  // Auto-resize notes textarea based on content
+  useEffect(() => {
+    const textarea = notesRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.max(60, textarea.scrollHeight)}px`;
+    }
+  }, [notes]);
 
   // Calculate adjusted calories based on user's preference
   const workoutPercentage = profile?.workout_calorie_percentage ?? 100;
@@ -196,11 +206,12 @@ export default function WorkoutPage() {
             <div className="space-y-2">
               <Label htmlFor="notes">Notities (optioneel)</Label>
               <Textarea
+                ref={notesRef}
                 id="notes"
                 placeholder="Bijv. Fran 8:32, AMRAP 15 min..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="min-h-[60px] resize-none"
+                className="min-h-[60px] resize-none overflow-hidden"
               />
             </div>
           </CardContent>

@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Loader2, Apple, Lightbulb, Dumbbell, Droplets, MessageCircle, Send, X, Info, Mic, MicOff } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -39,6 +39,7 @@ export default function DashboardPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -46,6 +47,15 @@ export default function DashboardPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages, isSendingChat]);
+
+  // Auto-resize chat input based on content
+  useEffect(() => {
+    const textarea = chatInputRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.min(Math.max(40, textarea.scrollHeight), 120)}px`;
+    }
+  }, [chatInput]);
 
   useEffect(() => {
     loadData();
@@ -669,7 +679,7 @@ export default function DashboardPage() {
                 <div
                   key={i}
                   className={cn(
-                    "text-sm p-3 rounded-xl max-w-[85%]",
+                    "text-sm p-3 rounded-xl max-w-[85%] whitespace-pre-wrap",
                     msg.role === "user"
                       ? "bg-primary text-primary-foreground ml-auto"
                       : "bg-muted"
@@ -724,7 +734,8 @@ export default function DashboardPage() {
                     <Mic className="h-5 w-5" />
                   )}
                 </button>
-                <Input
+                <Textarea
+                  ref={chatInputRef}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   placeholder="Stel een vraag over voeding..."
@@ -735,7 +746,8 @@ export default function DashboardPage() {
                     }
                   }}
                   disabled={isSendingChat || isTranscribing}
-                  className="flex-1"
+                  className="flex-1 min-h-[40px] max-h-[120px] py-2 resize-none overflow-hidden"
+                  rows={1}
                 />
                 <Button
                   size="icon"
